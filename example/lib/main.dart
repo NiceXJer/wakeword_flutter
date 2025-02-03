@@ -25,6 +25,9 @@ class _MyAppState extends State<MyApp> {
     if (!granted) {
       var status = await Permission.microphone.request();
       if (status.isGranted) {
+        print("Permission granted, starting wake word detection...");
+        await WakewordFlutter.setWakeWords(
+            ["Hey", "Hi", "Hello", "Hey AI", "Hello Jarvis"]);
         startListening();
       } else {
         setState(() {
@@ -32,6 +35,9 @@ class _MyAppState extends State<MyApp> {
         });
       }
     } else {
+      print("Microphone permission already granted.");
+      await WakewordFlutter.setWakeWords(
+          ["Hey", "Hi", "Hello", "Hey AI", "Hello Jarvis"]);
       startListening();
     }
   }
@@ -52,7 +58,7 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(
-        appBar: AppBar(title: Text("Wake Word Test")),
+        appBar: AppBar(title: const Text("Wake Word Test")),
         body: Center(
           child: Text(detectedWord, style: TextStyle(fontSize: 20)),
         ),

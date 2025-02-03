@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 class WakewordFlutter {
   static const MethodChannel _channel = MethodChannel('wakeword_flutter');
 
-  /// Checks if the microphone permission is granted.
   static Future<bool> checkPermission() async {
     try {
       final bool granted = await _channel.invokeMethod('checkPermission');
@@ -14,17 +13,30 @@ class WakewordFlutter {
     }
   }
 
-  /// Sets a callback to be invoked when the wake word is detected.
-  static void setWakeWordCallback(Function(String) callback) {
-    _channel.setMethodCallHandler((call) async {
-      if (call.method == "wakeWordDetected") {
-        final String wakeWord = call.arguments;
-        callback(wakeWord);
-      }
-    });
+  /// Sets the wake words dynamically
+  static Future<void> setWakeWords(List<String> wakeWords) async {
+    try {
+      await _channel.invokeMethod('setWakeWords', wakeWords);
+    } on PlatformException catch (e) {
+      print("Failed to set wake words: ${e.message}");
+    }
   }
 
-  /// Starts listening for the wake word.
+  static void setWakeWordCallback(Function(String) callback) {
+  _channel.setMethodCallHandler((call) async {
+     if (call.method == "recognizedWords") {
+    final String recognizedText = call.arguments;
+    print("Recognized words: $recognizedText");
+  }
+  if (call.method == "wakeWordDetected") {
+    final String wakeWord = call.arguments;
+    print("Wake word detected: $wakeWord");
+    callback(wakeWord);
+  }
+  });
+}
+
+
   static Future<void> startListening() async {
     try {
       await _channel.invokeMethod('startListening');
@@ -33,7 +45,6 @@ class WakewordFlutter {
     }
   }
 
-  /// Stops listening for the wake word.
   static Future<void> stopListening() async {
     try {
       await _channel.invokeMethod('stopListening');
