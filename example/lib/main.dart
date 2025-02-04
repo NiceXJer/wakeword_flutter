@@ -3,6 +3,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:wakeword_flutter/wakeword_flutter.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  WakewordFlutter.initWakeWordDetection();
+  WakewordFlutter.startListening();
   runApp(MyApp());
 }
 
@@ -26,8 +29,7 @@ class _MyAppState extends State<MyApp> {
       var status = await Permission.microphone.request();
       if (status.isGranted) {
         print("Permission granted, starting wake word detection...");
-        await WakewordFlutter.setWakeWords(
-            ["Hey", "Hi", "Hello", "Hey AI", "Hello Jarvis"]);
+        await WakewordFlutter.setWakeWords(["hey three sixty", "three sixty"]);
         startListening();
       } else {
         setState(() {
@@ -36,8 +38,7 @@ class _MyAppState extends State<MyApp> {
       }
     } else {
       print("Microphone permission already granted.");
-      await WakewordFlutter.setWakeWords(
-          ["Hey", "Hi", "Hello", "Hey AI", "Hello Jarvis"]);
+      await WakewordFlutter.setWakeWords(["hey three sixty", "three sixty"]);
       startListening();
     }
   }
@@ -46,6 +47,7 @@ class _MyAppState extends State<MyApp> {
     WakewordFlutter.setWakeWordCallback((word) {
       setState(() {
         detectedWord = "Wake word detected: $word";
+        WakewordFlutter.stopListening();
       });
       print("Wake word detected: $word");
     });

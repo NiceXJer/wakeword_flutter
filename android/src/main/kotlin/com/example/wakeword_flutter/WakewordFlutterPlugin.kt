@@ -12,10 +12,9 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import org.vosk.Model
 import org.vosk.Recognizer
-import org.vosk.android.SpeechService
 import org.vosk.android.RecognitionListener
+import org.vosk.android.SpeechService
 import org.json.JSONObject
-import android.content.res.AssetManager
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -28,23 +27,20 @@ class WakewordFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private var wakeWords: List<String> = listOf("hey threesixty", "hey three sixty", "hello 360", "hi", "hello")
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-        Log.d("WakeWord", "onAttachedToEngine called")
+        Log.d("WakeWord", "Plugin attached to engine")
         context = flutterPluginBinding.applicationContext
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "wakeword_flutter")
         channel.setMethodCallHandler(this)
-
         requestMicrophonePermission()
     }
 
     private fun requestMicrophonePermission() {
         Log.d("WakeWord", "Requesting microphone permission")
-        val activity = context as Activity
+        val activity = context as? Activity ?: return
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED) {
-            Log.d("WakeWord", "Microphone permission not granted, requesting permission")
             ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.RECORD_AUDIO), 1)
         } else {
-            Log.d("WakeWord", "Microphone permission already granted, initializing Vosk")
             initializeVosk()
         }
     }
@@ -54,47 +50,27 @@ class WakewordFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         try {
             val modelPath = context.filesDir.absolutePath + "/vosk-model"
             val modelDir = File(modelPath)
-Log.d("WakeWord", "Model path: $modelPath")
-if (!modelDir.exists() || modelDir.list()?.isEmpty() == true) {
-    Log.d("WakeWord", "Model folder is empty or not found, copying...")
-    copyAssetsToFilesDir(context, "vosk-model-small-en-us-0.15", modelPath)
-}
-
-
-            if (modelDir.exists()) {
-                Log.d("WakeWord", "Deleting existing model folder...")
-                modelDir.deleteRecursively()
-            }
 
             if (!modelDir.exists() || modelDir.list()?.isEmpty() == true) {
                 Log.d("WakeWord", "Copying Vosk model to $modelPath")
-                copyAssetsToFilesDir(context, "vosk-model-small-en-us-0.15", modelPath)
-            } else {
-                Log.d("WakeWord", "Vosk model already exists at $modelPath")
-            }
-
-            if (!modelDir.exists()) {
-                Log.e("WakeWord", "Error: Model directory does NOT exist!")
+                copyAssetsToFilesDir("vosk-model-small-en-us-0.15", modelPath)
             }
 
             val model = Model(modelPath)
             recognizer = Recognizer(model, 16000.0f)
-            Log.d("WakeWord", "Vosk initialized successfully")
             startListening()
         } catch (e: Exception) {
             Log.e("WakeWord", "Failed to initialize Vosk: ${e.message}")
         }
     }
 
-    private fun copyAssetsToFilesDir(context: Context, assetPath: String, outputPath: String) {
-        Log.d("WakeWord", "Copying assets from $assetPath to $outputPath")
-        val assetManager: AssetManager = context.assets
+    private fun copyAssetsToFilesDir(assetPath: String, outputPath: String) {
+        val assetManager = context.assets
         try {
-            val files = assetManager.list(assetPath)
+            val files = assetManager.list(assetPath) ?: return
             val outFile = File(outputPath)
 
-            if (files.isNullOrEmpty()) {
-                Log.d("WakeWord", "No subdirectories, copying file directly")
+            if (files.isEmpty()) {
                 val inputStream: InputStream = assetManager.open(assetPath)
                 val outputStream = FileOutputStream(outFile)
                 val buffer = ByteArray(1024)
@@ -105,12 +81,10 @@ if (!modelDir.exists() || modelDir.list()?.isEmpty() == true) {
                 inputStream.close()
                 outputStream.flush()
                 outputStream.close()
-                Log.d("WakeWord", "Copied file: $assetPath → $outputPath")
             } else {
-                Log.d("WakeWord", "Subdirectories found, recursively copying files")
                 if (!outFile.exists()) outFile.mkdirs()
                 for (file in files) {
-                    copyAssetsToFilesDir(context, "$assetPath/$file", "$outputPath/$file")
+                    copyAssetsToFilesDir("$assetPath/$file", "$outputPath/$file")
                 }
             }
         } catch (e: Exception) {
@@ -119,20 +93,21 @@ if (!modelDir.exists() || modelDir.list()?.isEmpty() == true) {
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
-        Log.d("WakeWord", "onMethodCall: ${call.method}")
         when (call.method) {
             "checkPermission" -> {
                 val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-                Log.d("WakeWord", "checkPermission result: $granted")
                 result.success(granted)
+                if (granted) initializeVosk()
             }
             "startListening" -> {
-                Log.d("WakeWord", "startListening called")
-                startListening()
+                val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                if (granted) {
+                    initializeVosk()
+                    startListening()
+                }
                 result.success(null)
             }
             "stopListening" -> {
-                Log.d("WakeWord", "stopListening called")
                 stopListening()
                 result.success(null)
             }
@@ -143,22 +118,15 @@ if (!modelDir.exists() || modelDir.list()?.isEmpty() == true) {
                     Log.d("WakeWord", "Updated wake words: $wakeWords")
                     result.success(null)
                 } else {
-                    Log.e("WakeWord", "Invalid argument for wake words")
                     result.error("INVALID_ARGUMENT", "Wake words must be a list of strings", null)
                 }
             }
-            else -> {
-                Log.d("WakeWord", "Method not implemented: ${call.method}")
-                result.notImplemented()
-            }
+            else -> result.notImplemented()
         }
     }
 
     private fun startListening() {
-    Log.d("WakeWord", "startListening")
-    if (speechService == null && recognizer != null) {
-        Log.d("WakeWord", "SpeechService not running, starting it")
-        try {
+        if (speechService == null && recognizer != null) {
             speechService = SpeechService(recognizer, 16000.0f)
             speechService?.startListening(object : RecognitionListener {
                 override fun onResult(hypothesis: String?) {
@@ -166,34 +134,29 @@ if (!modelDir.exists() || modelDir.list()?.isEmpty() == true) {
                 }
 
                 override fun onPartialResult(hypothesis: String?) {
-                    Log.d("WakeWord", "onPartialResult: $hypothesis")
                     if (hypothesis != null) {
-                        try {
-                            val jsonObject = JSONObject(hypothesis)
-                            val text = jsonObject.optString("partial", "")
-                            Log.d("WakeWord", "Partial result: $text")
-                            channel.invokeMethod("recognizedWords", text)
-                        } catch (e: Exception) {
-                            Log.e("WakeWord", "Error parsing partial result: ${e.message}")
+                        val jsonObject = JSONObject(hypothesis)
+                        val text = jsonObject.optString("partial", "").trim()
+                        Log.d("WakeWord", "Partial result: $text")
+                        channel.invokeMethod("recognizedWords", text)
+                        
+                        if (isWakeWordDetected(text)) {
+                            Log.d("WakeWord", "Wake word detected in partial: $text")
+                            channel.invokeMethod("wakeWordDetected", text)
                         }
                     }
                 }
 
                 override fun onFinalResult(hypothesis: String?) {
-                    Log.d("WakeWord", "onFinalResult: $hypothesis")
                     if (hypothesis != null) {
-                        try {
-                            val jsonObject = JSONObject(hypothesis)
-                            val text = jsonObject.optString("text", "")
-                            Log.d("WakeWord", "Final result: $text")
-                            channel.invokeMethod("recognizedWords", text)
-
-                            if (isWakeWordDetected(text)) {
-                                Log.d("WakeWord", "Wake word detected: $text")
-                                channel.invokeMethod("wakeWordDetected", text)
-                            }
-                        } catch (e: Exception) {
-                            Log.e("WakeWord", "Error parsing final result: ${e.message}")
+                        val jsonObject = JSONObject(hypothesis)
+                        val text = jsonObject.optString("text", "").trim()
+                        Log.d("WakeWord", "Final result: $text")
+                        channel.invokeMethod("recognizedWords", text)
+                        
+                        if (isWakeWordDetected(text)) {
+                            Log.d("WakeWord", "Wake word detected: $text")
+                            channel.invokeMethod("wakeWordDetected", text)
                         }
                     }
                 }
@@ -206,31 +169,22 @@ if (!modelDir.exists() || modelDir.list()?.isEmpty() == true) {
                     Log.d("WakeWord", "SpeechService timeout")
                 }
             })
-        } catch (e: Exception) {
-            Log.e("WakeWord", "Error starting SpeechService: ${e.message}")
         }
-    } else {
-        Log.d("WakeWord", "SpeechService is already running.")
     }
-}
-
 
     private fun stopListening() {
-    Log.d("WakeWord", "Stopping listening")
-    speechService?.stop()
-    speechService = null
-}
-
+        speechService?.stop()
+        speechService?.shutdown()
+        speechService = null
+    }
 
     private fun isWakeWordDetected(text: String): Boolean {
-        Log.d("WakeWord", "Checking detected text: $text")
-        val detected = wakeWords.any { it.equals(text, ignoreCase = true) }
-        Log.d("WakeWord", "Wake word matched: $detected")
-        return detected
+        val trimmedText = text.trim()
+        Log.d("WakeWord", "Checking if '$trimmedText' matches any wake words: $wakeWords")
+        return wakeWords.any { it.equals(trimmedText, ignoreCase = true) }
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-        Log.d("WakeWord", "onDetachedFromEngine called")
         channel.setMethodCallHandler(null)
         stopListening()
     }
