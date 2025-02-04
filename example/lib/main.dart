@@ -3,9 +3,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:wakeword_flutter/wakeword_flutter.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  WakewordFlutter.initWakeWordDetection();
-  WakewordFlutter.startListening();
+  // WidgetsFlutterBinding.ensureInitialized();
+  // WakewordFlutter.initWakeWordDetection();
+  // WakewordFlutter.startListening();
   runApp(MyApp());
 }
 
@@ -29,17 +29,18 @@ class _MyAppState extends State<MyApp> {
       var status = await Permission.microphone.request();
       if (status.isGranted) {
         print("Permission granted, starting wake word detection...");
-        await WakewordFlutter.setWakeWords(["hey three sixty", "three sixty"]);
-        startListening();
+        await WakewordFlutter.setWakeWords(["hey", "hello" "help"]);
+        // startListening();
       } else {
         setState(() {
           detectedWord = "Microphone permission needed.";
         });
+        await WakewordFlutter.setWakeWords(["hey", "hello" "help"]);
       }
     } else {
       print("Microphone permission already granted.");
-      await WakewordFlutter.setWakeWords(["hey three sixty", "three sixty"]);
-      startListening();
+      await WakewordFlutter.setWakeWords(["hey", "hello" "help"]);
+      // startListening();
     }
   }
 
@@ -61,8 +62,17 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       home: Scaffold(
         appBar: AppBar(title: const Text("Wake Word Test")),
-        body: Center(
-          child: Text(detectedWord, style: TextStyle(fontSize: 20)),
+        body: Column(
+          children: [
+            IconButton(
+                onPressed: () {
+                  startListening();
+                },
+                icon: const Icon(Icons.mic)),
+            Center(
+              child: Text(detectedWord, style: TextStyle(fontSize: 20)),
+            ),
+          ],
         ),
       ),
     );

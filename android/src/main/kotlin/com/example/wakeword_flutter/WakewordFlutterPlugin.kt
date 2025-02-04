@@ -24,7 +24,7 @@ class WakewordFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private lateinit var context: Context
     private var speechService: SpeechService? = null
     private var recognizer: Recognizer? = null
-    private var wakeWords: List<String> = listOf("hey threesixty", "hey three sixty", "hello 360", "hi", "hello")
+    private var wakeWords: List<String> = listOf("hey threesixty", "hey three sixty", "hello 360","three sixty")
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         Log.d("WakeWord", "Plugin attached to engine")
@@ -53,7 +53,7 @@ class WakewordFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
             if (!modelDir.exists() || modelDir.list()?.isEmpty() == true) {
                 Log.d("WakeWord", "Copying Vosk model to $modelPath")
-                copyAssetsToFilesDir("vosk-model-small-en-us-0.15", modelPath)
+                copyAssetsToFilesDir("vosk-model-small-en-in-0.4", modelPath)
             }
 
             val model = Model(modelPath)
